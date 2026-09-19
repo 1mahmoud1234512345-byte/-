@@ -1,0 +1,51 @@
+name: Build Rasid APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Unzip project source
+        run: unzip -o project.zip -d .
+
+      - name: Generate missing platform folders (android/, etc.)
+        run: flutter create --platforms=android --org com.rasid.app .
+
+      - name: Patch AndroidManifest.xml automatically
+        run: python3 tools/patch_android.py
+
+      - name: Patch MainActivity.kt automatically
+        run: python3 tools/write_main_activity.py
+
+      - name: Set minSdkVersion
+        run: python3 tools/patch_gradle.py
+
+      - name: Install Flutter packages
+        run: flutter pub get
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: rasid-app-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
